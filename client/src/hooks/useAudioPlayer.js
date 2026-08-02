@@ -4,14 +4,22 @@ const useAudioPlayer = () => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [hasLoop, setHasLoop] = useState(false);
+    const [volume, setVolume] = useState(0.8);
 
     const audioContextRef = useRef(null);
     const sourceNodeRef = useRef(null);
     const audioBufferRef = useRef(null);
+    const gainNodeRef = useRef(null);
 
     const getContext = () => {
         if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            audioContextRef.current = ctx;
+
+            const gainNode = ctx.createGain();
+            gainNode.gain.value = volume;
+            gainNode.connect(ctx.destination);
+            gainNodeRef.current = gainNode;
         }
         return audioContextRef.current;
     };
@@ -47,7 +55,7 @@ const useAudioPlayer = () => {
         const source = context.createBufferSource();
         source.buffer = audioBufferRef.current;
         source.loop = true; // Web Audio property ensuring 100% gapless looping
-        source.connect(context.destination);
+        source.connect(gainNodeRef.current);
         source.start(0);
 
         sourceNodeRef.current = source;
@@ -103,6 +111,14 @@ const useAudioPlayer = () => {
         };
     }, []);
 
+    const changeVolume = (newVolume) => {
+        setVolume(newVolume);
+        if (gainNodeRef.current && audioContextRef.current) {
+            // Apply volume smoothly to avoid audio artifacts (clicks/pops)
+            gainNodeRef.current.gain.setTargetAtTime(newVolume, audioContextRef.current.currentTime, 0.05);
+        }
+    };
+
     return {
         isPlaying,
         isPaused,
@@ -112,7 +128,9 @@ const useAudioPlayer = () => {
         pause,
         stop,
         clear,
-        audioBuffer: audioBufferRef.current
+        audioBuffer: audioBufferRef.current,
+        volume,
+        setVolume: changeVolume
     };
 };
 
