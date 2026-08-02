@@ -2,20 +2,16 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 
 const useAudioRecorder = () => {
     const [isRecording, setIsRecording] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [hasRecording, setHasRecording] = useState(false);
+    const [audioBlob, setAudioBlob] = useState(null);
     const [microphoneName, setMicrophoneName] = useState('');
     const [duration, setDuration] = useState(0);
-    const [statusMessage, setStatusMessage] = useState('Ready');
+    const [recorderStatus, setRecorderStatus] = useState('Ready');
 
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
-    const audioUrlRef = useRef(null);
-    const audioRef = useRef(null);
     const timerRef = useRef(null);
     const streamRef = useRef(null);
 
-    // Stop timer utility
     const stopTimer = useCallback(() => {
         if (timerRef.current) {
             clearInterval(timerRef.current);
@@ -28,7 +24,6 @@ const useAudioRecorder = () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
 
-            // Attempt to retrieve descriptive device name
             const devices = await navigator.mediaDevices.enumerateDevices();
             const audioInput = devices.find(device => device.kind === 'audioinput' && device.label);
             setMicrophoneName(audioInput ? audioInput.label : 'Default Microphone');
@@ -44,23 +39,21 @@ const useAudioRecorder = () => {
             };
 
             mediaRecorder.onstop = () => {
-                // Build playable object once finished capturing
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                audioUrlRef.current = URL.createObjectURL(audioBlob);
+                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                setAudioBlob(blob);
+                setRecorderStatus('Recording Complete');
 
-                setHasRecording(true);
-                setStatusMessage('Recording Complete');
-
-                // Shut down microphone access to release system hardware lock
                 if (streamRef.current) {
                     streamRef.current.getTracks().forEach(track => track.stop());
                     streamRef.current = null;
                 }
             };
 
+            // Ensure active blobs are cleared when we start fresh
+            setAudioBlob(null);
             mediaRecorder.start();
             setIsRecording(true);
-            setStatusMessage('Recording...');
+            setRecorderStatus('Recording...');
             setDuration(0);
 
             timerRef.current = setInterval(() => {
@@ -69,7 +62,7 @@ const useAudioRecorder = () => {
 
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            setStatusMessage('Microphone access denied');
+            setRecorderStatus('Microphone access denied');
         }
     };
 
@@ -81,60 +74,23 @@ const useAudioRecorder = () => {
         }
     };
 
-    const playRecording = () => {
-        if (!audioUrlRef.current) return;
-
-        setIsPlaying(true);
-        setStatusMessage('Playing...');
-
-        const audio = new Audio(audioUrlRef.current);
-        audioRef.current = audio;
-
-        audio.onended = () => {
-            setIsPlaying(false);
-            setStatusMessage('Ready');
-        };
-
-        audio.play();
-    };
-
     const clearRecording = () => {
-        if (audioUrlRef.current) {
-            URL.revokeObjectURL(audioUrlRef.current);
-            audioUrlRef.current = null;
-        }
+        setAudioBlob(null);
         audioChunksRef.current = [];
-
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current = null;
-        }
-
-        setHasRecording(false);
         setIsRecording(false);
-        setIsPlaying(false);
         setDuration(0);
-        setMicrophoneName('');
-        setStatusMessage('Ready');
+        setRecorderStatus('Ready');
         stopTimer();
 
-        // Safety check just in case recording was suddenly aborted
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
         }
     };
 
-    // Prevent memory leaks / hardware lock on unexpected unmounts
     useEffect(() => {
         return () => {
             stopTimer();
-            if (audioUrlRef.current) {
-                URL.revokeObjectURL(audioUrlRef.current);
-            }
-            if (audioRef.current) {
-                audioRef.current.pause();
-            }
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach(track => track.stop());
             }
@@ -149,15 +105,14 @@ const useAudioRecorder = () => {
 
     return {
         isRecording,
-        isPlaying,
-        hasRecording,
+        audioBlob,
         microphoneName,
         durationFormatted: formatDuration(duration),
-        statusMessage,
+        recorderStatus,
         startRecording,
         stopRecording,
-        playRecording,
-        clearRecording
+        clearRecording,
+        formatDuration
     };
 };
 
