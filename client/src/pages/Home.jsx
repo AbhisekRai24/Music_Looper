@@ -25,7 +25,9 @@ const Home = () => {
         load,
         play,
         pause,
-        clear: clearPlayer
+        clear: clearPlayer,
+        volume,
+        setVolume
     } = useAudioPlayer();
 
     // Unified loop length dynamically reads real length of the finalized WebAudio buffer
@@ -122,6 +124,22 @@ const Home = () => {
                     <span className="info-label">Loop Status:</span>
                     <span className={`info-value ${isRecording ? 'recording' : ''}`}>{unifiedStatus}</span>
                 </div>
+            </div>
+
+            <div className="volume-control-section">
+                <div className="volume-header">
+                    <span className="volume-label">Master Volume</span>
+                    <span className="volume-value">{Math.round(volume * 100)}%</span>
+                </div>
+                <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={volume}
+                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                    className="volume-slider"
+                />
             </div>
 
             <div className="controls">
