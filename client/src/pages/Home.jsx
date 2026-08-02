@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import api from '../services/api';
+import api, { saveProject, getProjects, deleteProject, API_URL } from '../services/api';
 import useAudioRecorder from '../hooks/useAudioRecorder';
 import useAudioPlayer from '../hooks/useAudioPlayer';
 
 const Home = () => {
     const [backendStatus, setBackendStatus] = useState('checking');
+    const [projectName, setProjectName] = useState('');
+    const [savedProjects, setSavedProjects] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
 
     const {
         isRecording,
@@ -61,7 +64,17 @@ const Home = () => {
             }
         };
         checkBackend();
+        fetchProjects();
     }, []);
+
+    const fetchProjects = async () => {
+        try {
+            const data = await getProjects();
+            setSavedProjects(data);
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+        }
+    };
 
     // Event Driven orchestration: strictly load buffer once recorder completes
     useEffect(() => {
@@ -93,6 +106,68 @@ const Home = () => {
         }
     };
 
+    const handleSave = async () => {
+        if (!audioBlob) return;
+
+        let finalName = projectName.trim();
+        if (!finalName) {
+            finalName = window.prompt("Please enter a project name:");
+            if (!finalName) return;
+            setProjectName(finalName);
+        }
+
+        setIsSaving(true);
+        const formData = new FormData();
+        formData.append('name', finalName);
+        formData.append('audioBlob', audioBlob, 'loop.webm');
+        formData.append('duration', audioBuffer ? audioBuffer.duration : 0);
+        formData.append('masterVolume', volume);
+
+        try {
+            await saveProject(formData);
+            alert('Project Saved Successfully');
+            fetchProjects();
+        } catch (error) {
+            console.error('Error saving project:', error);
+            alert('Error saving project');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Delete this project?')) return;
+        try {
+            await deleteProject(id);
+            fetchProjects();
+        } catch (error) {
+            console.error('Error deleting project:', error);
+        }
+    };
+
+    const handleLoad = async (project) => {
+        if (hasLoop) {
+            const confirmLoad = window.confirm("Loading this project will clear the current loop. Continue?");
+            if (!confirmLoad) return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/uploads/${project.audioPath}`);
+            const blob = await response.blob();
+
+            // clear both recorder and player just in case, then load
+            clearPlayer();
+            clearRecording();
+            load(blob);
+
+            setProjectName(project.name);
+            setVolume(project.masterVolume);
+        } catch (error) {
+            console.error('Error loading project:', error);
+            alert("Error loading project audio");
+        }
+    };
+
     return (
         <div className="home-container">
             <h1>Guitar Looper</h1>
@@ -108,6 +183,8 @@ const Home = () => {
                     type="text"
                     placeholder="New Project Name..."
                     className="project-input"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
                 />
             </div>
 
@@ -164,7 +241,13 @@ const Home = () => {
                 >
                     {isPlaying ? 'Pause' : 'Play'}
                 </button>
-                <button disabled className="btn btn-save">Save</button>
+                <button
+                    className="btn btn-save"
+                    onClick={handleSave}
+                    disabled={!hasLoop || isSaving || isRecording}
+                >
+                    {isSaving ? 'Saving...' : 'Save'}
+                </button>
                 <button disabled className="btn btn-load">Load</button>
                 <button
                     className="btn btn-clear"
@@ -174,6 +257,28 @@ const Home = () => {
                     Clear
                 </button>
             </div>
+
+            {savedProjects.length > 0 && (
+                <div className="saved-projects-section">
+                    <h2>Saved Projects</h2>
+                    <div className="projects-list">
+                        {savedProjects.map(proj => (
+                            <div key={proj._id} className="project-card">
+                                <h3>{proj.name}</h3>
+                                <div className="project-meta">
+                                    <p>Duration: {formatDuration(Math.round(proj.duration))}</p>
+                                    <p>Volume: {Math.round(proj.masterVolume * 100)}%</p>
+                                    <p>Created: {new Date(proj.createdAt).toLocaleDateString()}</p>
+                                </div>
+                                <div className="project-actions">
+                                    <button onClick={() => handleLoad(proj)} className="btn-small">Load</button>
+                                    <button onClick={() => handleDelete(proj._id)} className="btn-small btn-danger">Delete</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
