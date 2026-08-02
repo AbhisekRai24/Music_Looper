@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-router.post('/', upload.single('audioBlob'), projectController.saveProject);
+router.post('/', upload.any(), projectController.saveProject);
 router.get('/', projectController.getProjects);
 router.get('/:id', projectController.getProject);
 router.delete('/:id', projectController.deleteProject);

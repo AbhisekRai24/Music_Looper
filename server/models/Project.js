@@ -7,12 +7,17 @@ const projectSchema = new mongoose.Schema({
     },
     audioPath: {
         type: String,
-        required: true,
+        required: false,
     },
     duration: {
         type: Number,
-        required: true,
+        required: false,
     },
+    layers: [{
+        audioPath: String,
+        duration: Number,
+        volume: { type: Number, default: 1 }
+    }],
     masterVolume: {
         type: Number,
         required: true,
