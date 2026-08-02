@@ -41,8 +41,7 @@ const useAudioPlayer = () => {
             };
             layersRef.current[layerId] = layerEntry;
 
-            console.log(`[addLayer] Added layer id=${layerId}, buffer duration=${decodedBuffer.duration.toFixed(2)}s, total layers=${Object.keys(layersRef.current).length}`);
-            console.log(`[addLayer] isPlayingRef.current=${isPlayingRef.current}`);
+            console.log(`[addLayer] Added layer id=${layerId}, buffer duration=${decodedBuffer.duration.toFixed(2)}s`);
 
             // KEY FIX: if audio is already playing, immediately start this new layer
             // so it joins the loop without requiring the user to press Play again.
@@ -88,9 +87,35 @@ const useAudioPlayer = () => {
         }
     };
 
+    // Recalculate effective gain for every layer based on current mute/solo state.
+    // Receives the live tracks array from Home.jsx so it has the latest flags.
+    // Rules:
+    //   anySolo=true  → audible only if solo && !muted
+    //   anySolo=false → audible only if !muted
+    // Only GainNodes are touched — SourceNodes keep running without interruption.
+    const applySoloMute = (tracks) => {
+        if (!audioContextRef.current) return;
+        const anySolo = tracks.some(t => t.solo);
+        const ctx = audioContextRef.current;
+
+        tracks.forEach(track => {
+            const layer = layersRef.current[track.id];
+            if (!layer) return;
+
+            let effectiveVolume;
+            if (anySolo) {
+                effectiveVolume = (track.solo && !track.muted) ? track.volume : 0;
+            } else {
+                effectiveVolume = track.muted ? 0 : track.volume;
+            }
+
+            layer.gainNode.gain.cancelScheduledValues(ctx.currentTime);
+            layer.gainNode.gain.setTargetAtTime(effectiveVolume, ctx.currentTime, 0.015);
+        });
+    };
+
     const play = async () => {
         const layerIds = Object.keys(layersRef.current);
-        console.log(`[play] Total layers=${layerIds.length}, ids=[${layerIds.join(', ')}]`);
         if (layerIds.length === 0) return;
 
         const context = getContext();
@@ -105,7 +130,6 @@ const useAudioPlayer = () => {
 
         layerIds.forEach(id => {
             const layer = layersRef.current[id];
-            console.log(`[play] Layer id=${id}, hasBuffer=${!!layer.buffer}, bufferDuration=${layer.buffer ? layer.buffer.duration.toFixed(2) : 'N/A'}`);
 
             if (layer.sourceNode) {
                 try { layer.sourceNode.stop(); } catch (e) { }
@@ -195,6 +219,7 @@ const useAudioPlayer = () => {
         addLayer,
         removeLayer,
         setLayerVolume,
+        applySoloMute,
         play,
         pause,
         stop,

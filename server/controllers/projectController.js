@@ -36,20 +36,25 @@ exports.saveProject = async (req, res) => {
             modelData.layers = files.map((file, index) => {
                 const meta = parsedLayersData[index] || {};
                 return {
+                    name: meta.name || `Track ${index + 1}`,
                     audioPath: file.filename,
                     duration: Number(meta.duration) || 0,
-                    volume: Number(meta.volume) !== undefined && !isNaN(Number(meta.volume)) ? Number(meta.volume) : 1
+                    volume: Number(meta.volume) !== undefined && !isNaN(Number(meta.volume)) ? Number(meta.volume) : 1,
+                    muted: meta.muted === true,
+                    solo: meta.solo === true
                 };
             });
         } else {
             // Logic for legacy v5 saves
             modelData.audioPath = files[0].filename;
             modelData.duration = Number(duration) || 0;
-            // Also store it as a single layer so that the app treats it the same way going forward if desired
             modelData.layers = [{
+                name: 'Track 1',
                 audioPath: files[0].filename,
                 duration: Number(duration) || 0,
-                volume: 1
+                volume: 1,
+                muted: false,
+                solo: false
             }];
         }
 
