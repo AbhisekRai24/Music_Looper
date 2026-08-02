@@ -4,29 +4,64 @@ const fs = require('fs');
 
 exports.saveProject = async (req, res) => {
     try {
-        const { name, duration, masterVolume } = req.body;
-        const file = req.file;
+        const { name, duration, masterVolume, layersData } = req.body;
+        // req.files is an array if upload.any() or upload.array() is used
+        const files = req.files || (req.file ? [req.file] : []);
 
         if (!name) {
-            // We should remove the uploaded file if validation fails and multer uploaded it
-            if (file) fs.unlinkSync(file.path);
+            files.forEach(f => {
+                if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
+            });
             return res.status(400).json({ message: 'Project name is required' });
         }
-        if (!file) {
-            return res.status(400).json({ message: 'Audio file is required' });
+        if (files.length === 0) {
+            return res.status(400).json({ message: 'At least one audio file is required' });
         }
 
-        const project = new Project({
-            name,
-            audioPath: file.filename,
-            duration: Number(duration) || 0,
-            masterVolume: Number(masterVolume) || 0.8
-        });
+        let parsedLayersData = [];
+        try {
+            if (layersData) parsedLayersData = JSON.parse(layersData);
+        } catch (e) {
+            console.error('Error parsing layersData:', e);
+        }
 
+        // If it looks like legacy version (no layersData, just one file)
+        let modelData = {
+            name,
+            masterVolume: Number(masterVolume) || 0.8
+        };
+
+        if (parsedLayersData.length > 0 && Array.isArray(parsedLayersData)) {
+            // New multi-layer format
+            modelData.layers = files.map((file, index) => {
+                const meta = parsedLayersData[index] || {};
+                return {
+                    audioPath: file.filename,
+                    duration: Number(meta.duration) || 0,
+                    volume: Number(meta.volume) !== undefined && !isNaN(Number(meta.volume)) ? Number(meta.volume) : 1
+                };
+            });
+        } else {
+            // Logic for legacy v5 saves
+            modelData.audioPath = files[0].filename;
+            modelData.duration = Number(duration) || 0;
+            // Also store it as a single layer so that the app treats it the same way going forward if desired
+            modelData.layers = [{
+                audioPath: files[0].filename,
+                duration: Number(duration) || 0,
+                volume: 1
+            }];
+        }
+
+        const project = new Project(modelData);
         await project.save();
         res.status(201).json(project);
     } catch (error) {
-        if (req.file) fs.unlinkSync(req.file.path);
+        if (req.files) {
+            req.files.forEach(f => {
+                if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
+            });
+        }
         res.status(500).json({ message: 'Error saving project', error: error.message });
     }
 };
