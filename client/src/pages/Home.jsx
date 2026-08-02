@@ -1,22 +1,49 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import useAudioRecorder from '../hooks/useAudioRecorder';
+import useAudioPlayer from '../hooks/useAudioPlayer';
 
 const Home = () => {
     const [backendStatus, setBackendStatus] = useState('checking');
 
     const {
         isRecording,
-        isPlaying,
-        hasRecording,
+        audioBlob,
         microphoneName,
         durationFormatted,
-        statusMessage,
         startRecording,
         stopRecording,
-        playRecording,
-        clearRecording
+        clearRecording,
+        formatDuration
     } = useAudioRecorder();
+
+    const {
+        isPlaying,
+        isPaused,
+        hasLoop,
+        audioBuffer,
+        load,
+        play,
+        pause,
+        clear: clearPlayer
+    } = useAudioPlayer();
+
+    // Unified loop length dynamically reads real length of the finalized WebAudio buffer
+    const loopLengthFormatted = audioBuffer
+        ? formatDuration(Math.round(audioBuffer.duration))
+        : '00:00';
+
+    // State orchestration engine for status label
+    let unifiedStatus = 'Ready';
+    if (isRecording) {
+        unifiedStatus = 'Recording...';
+    } else if (isPlaying) {
+        unifiedStatus = 'Loop Playing';
+    } else if (isPaused) {
+        unifiedStatus = 'Loop Paused';
+    } else if (hasLoop) {
+        unifiedStatus = 'Loop Ready';
+    }
 
     useEffect(() => {
         const checkBackend = async () => {
@@ -31,9 +58,38 @@ const Home = () => {
                 setBackendStatus('offline');
             }
         };
-
         checkBackend();
     }, []);
+
+    // Event Driven orchestration: strictly load buffer once recorder completes
+    useEffect(() => {
+        if (audioBlob) {
+            load(audioBlob);
+        }
+    }, [audioBlob]);
+
+    const handleRecord = () => {
+        if (hasLoop) {
+            const confirmDelete = window.confirm("Are you sure you want to delete the existing loop and record a new one?");
+            if (!confirmDelete) return;
+            clearPlayer();
+            clearRecording();
+        }
+        startRecording();
+    };
+
+    const handleClear = () => {
+        clearPlayer();
+        clearRecording();
+    };
+
+    const handleTogglePlay = () => {
+        if (isPlaying) {
+            pause();
+        } else {
+            play();
+        }
+    };
 
     return (
         <div className="home-container">
@@ -59,19 +115,19 @@ const Home = () => {
                     <span className="info-value">{microphoneName || 'None'}</span>
                 </div>
                 <div className="info-block">
-                    <span className="info-label">Duration:</span>
-                    <span className="info-value duration">{durationFormatted}</span>
+                    <span className="info-label">Loop Length:</span>
+                    <span className="info-value duration">{isRecording ? durationFormatted : loopLengthFormatted}</span>
                 </div>
                 <div className="info-block">
-                    <span className="info-label">Status:</span>
-                    <span className={`info-value ${isRecording ? 'recording' : ''}`}>{statusMessage}</span>
+                    <span className="info-label">Loop Status:</span>
+                    <span className={`info-value ${isRecording ? 'recording' : ''}`}>{unifiedStatus}</span>
                 </div>
             </div>
 
             <div className="controls">
                 <button
                     className="btn btn-record"
-                    onClick={startRecording}
+                    onClick={handleRecord}
                     disabled={isRecording || isPlaying}
                 >
                     Record
@@ -85,17 +141,17 @@ const Home = () => {
                 </button>
                 <button
                     className="btn btn-play"
-                    onClick={playRecording}
-                    disabled={!hasRecording || isRecording || isPlaying}
+                    onClick={handleTogglePlay}
+                    disabled={!hasLoop || isRecording}
                 >
-                    Play
+                    {isPlaying ? 'Pause' : 'Play'}
                 </button>
                 <button disabled className="btn btn-save">Save</button>
                 <button disabled className="btn btn-load">Load</button>
                 <button
                     className="btn btn-clear"
-                    onClick={clearRecording}
-                    disabled={(!hasRecording && !isRecording && !isPlaying)}
+                    onClick={handleClear}
+                    disabled={!hasLoop && !isRecording}
                 >
                     Clear
                 </button>
