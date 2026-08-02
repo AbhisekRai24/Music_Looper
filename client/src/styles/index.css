@@ -53,9 +53,17 @@ h1 {
   font-size: 0.95rem;
 }
 
-.status.online { color: var(--success-color); }
-.status.offline { color: var(--danger-color); }
-.status.checking { color: var(--text-muted); }
+.status.online {
+  color: var(--success-color);
+}
+
+.status.offline {
+  color: var(--danger-color);
+}
+
+.status.checking {
+  color: var(--text-muted);
+}
 
 .project-input {
   background-color: #242933;
@@ -92,16 +100,106 @@ h1 {
   font-size: 1rem;
   font-weight: 600;
   border-radius: 50px;
-  cursor: not-allowed; /* Disabled state for now */
+  cursor: not-allowed;
+  /* Disabled state for now */
   transition: all 0.2s;
   min-width: 110px;
   opacity: 0.6;
 }
 
 /* Subtle thematic borders to look good even disabled */
-.btn-record { border-bottom: 2px solid var(--danger-color); }
-.btn-stop { border-bottom: 2px solid #555; }
-.btn-play { border-bottom: 2px solid var(--success-color); }
-.btn-save { border-bottom: 2px solid var(--primary-color); }
-.btn-load { border-bottom: 2px solid #8b5cf6; }
-.btn-clear { border-bottom: 2px solid #f59e0b; }
+.btn-record {
+  border-bottom: 2px solid var(--danger-color);
+}
+
+.btn-stop {
+  border-bottom: 2px solid #555;
+}
+
+.btn-play {
+  border-bottom: 2px solid var(--success-color);
+}
+
+.btn-save {
+  border-bottom: 2px solid var(--primary-color);
+}
+
+.btn-load {
+  border-bottom: 2px solid #8b5cf6;
+}
+
+.btn-clear {
+  border-bottom: 2px solid #f59e0b;
+}
+
+.recording-info {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 500px;
+  background-color: #242933;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+
+.info-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.info-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  text-align: center;
+}
+
+.info-value.recording {
+  color: var(--danger-color);
+  animation: pulse 1.5s infinite;
+}
+
+.info-value.duration {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.3rem;
+  color: var(--primary-color);
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn:not(:disabled) {
+  cursor: pointer;
+  opacity: 1;
+}
+
+.btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}

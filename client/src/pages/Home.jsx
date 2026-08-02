@@ -1,8 +1,22 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import useAudioRecorder from '../hooks/useAudioRecorder';
 
 const Home = () => {
     const [backendStatus, setBackendStatus] = useState('checking');
+
+    const {
+        isRecording,
+        isPlaying,
+        hasRecording,
+        microphoneName,
+        durationFormatted,
+        statusMessage,
+        startRecording,
+        stopRecording,
+        playRecording,
+        clearRecording
+    } = useAudioRecorder();
 
     useEffect(() => {
         const checkBackend = async () => {
@@ -39,13 +53,52 @@ const Home = () => {
                 />
             </div>
 
+            <div className="recording-info">
+                <div className="info-block">
+                    <span className="info-label">Microphone:</span>
+                    <span className="info-value">{microphoneName || 'None'}</span>
+                </div>
+                <div className="info-block">
+                    <span className="info-label">Duration:</span>
+                    <span className="info-value duration">{durationFormatted}</span>
+                </div>
+                <div className="info-block">
+                    <span className="info-label">Status:</span>
+                    <span className={`info-value ${isRecording ? 'recording' : ''}`}>{statusMessage}</span>
+                </div>
+            </div>
+
             <div className="controls">
-                <button disabled className="btn btn-record">Record</button>
-                <button disabled className="btn btn-stop">Stop</button>
-                <button disabled className="btn btn-play">Play</button>
+                <button
+                    className="btn btn-record"
+                    onClick={startRecording}
+                    disabled={isRecording || isPlaying}
+                >
+                    Record
+                </button>
+                <button
+                    className="btn btn-stop"
+                    onClick={stopRecording}
+                    disabled={!isRecording}
+                >
+                    Stop
+                </button>
+                <button
+                    className="btn btn-play"
+                    onClick={playRecording}
+                    disabled={!hasRecording || isRecording || isPlaying}
+                >
+                    Play
+                </button>
                 <button disabled className="btn btn-save">Save</button>
                 <button disabled className="btn btn-load">Load</button>
-                <button disabled className="btn btn-clear">Clear</button>
+                <button
+                    className="btn btn-clear"
+                    onClick={clearRecording}
+                    disabled={(!hasRecording && !isRecording && !isPlaying)}
+                >
+                    Clear
+                </button>
             </div>
         </div>
     );
